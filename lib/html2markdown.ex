@@ -246,8 +246,17 @@ defmodule Html2Markdown do
     end
   end
 
+  defp filter_elements(elements_or_texts) do
+    elements_or_texts
+    |> Enum.filter(fn
+      {_, _, _} -> true
+      _ -> false
+    end)
+  end
+
   defp process_table_rows(rows) do
     rows
+    |> filter_elements()
     |> Enum.with_index()
     |> Enum.map_join("\n", fn {row, index} ->
       row_str = process_table_row(row)
@@ -260,21 +269,27 @@ defmodule Html2Markdown do
     end)
   end
 
-  defp process_table_row({"tr", _attrs, cells}) when is_list(cells) and length(cells) > 0 do
-    {_, attrs, _} = List.first(cells)
-    colspan = get_colspan(attrs)
+  defp process_table_row({"tr", _attrs, cells}) when is_list(cells) do
+    cells = filter_elements(cells)
 
-    processed_cells =
-      if colspan >= 1 do
-        {_, _, content} = List.first(cells)
-        cell_content = process_children(content)
-        spans = Enum.map_join(1..colspan, " | ", &process_table_cell/1)
-        cell_content <> spans
-      else
-        Enum.map_join(cells, " | ", &process_table_cell/1)
-      end
+    if length(cells) > 0 do
+      {_, attrs, _} = List.first(cells)
+      colspan = get_colspan(attrs)
 
-    "| " <> processed_cells <> " |"
+      processed_cells =
+        if colspan >= 1 do
+          {_, _, content} = List.first(cells)
+          cell_content = process_children(content)
+          spans = Enum.map_join(1..colspan, " | ", &process_table_cell/1)
+          cell_content <> spans
+        else
+          Enum.map_join(cells, " | ", &process_table_cell/1)
+        end
+
+      "| " <> processed_cells <> " |"
+    else
+      ""
+    end
   end
 
   defp process_table_row(_), do: ""
@@ -313,17 +328,23 @@ defmodule Html2Markdown do
   defp header_separator({"thead", _, [{"tr", _, cells}]}), do: header_separator({"tr", [], cells})
 
   defp header_separator({"tr", _, cells}) do
-    {_, attrs, _} = List.first(cells)
-    colspan = get_colspan(attrs)
+    cells = filter_elements(cells)
 
-    separator =
-      if colspan >= 1 do
-        Enum.map_join(1..colspan, " | ", fn _ -> "---" end)
-      else
-        Enum.map_join(cells, " | ", fn _ -> "---" end)
-      end
+    if length(cells) > 0 do
+      {_, attrs, _} = List.first(cells)
+      colspan = get_colspan(attrs)
 
-    "| " <> separator <> " |"
+      separator =
+        if colspan >= 1 do
+          Enum.map_join(1..colspan, " | ", fn _ -> "---" end)
+        else
+          Enum.map_join(cells, " | ", fn _ -> "---" end)
+        end
+
+      "| " <> separator <> " |"
+    else
+      ""
+    end
   end
 
   defp process_children(children) do
