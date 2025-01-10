@@ -162,7 +162,11 @@ defmodule Html2Markdown do
     do: newline() <> "#{process_children(children)}" <> newline()
 
   defp process_node({"picture", _, children}) do
-    with {"img", attrs, _} <- Enum.find(children, fn {tag, _, _} -> tag == "img" end),
+    with {"img", attrs, _} <-
+           Enum.find(children, fn
+             {tag, _, _} -> tag == "img"
+             _ -> false
+           end),
          %{"alt" => alt, "src" => src} <- Enum.into(attrs, %{}) do
       "![#{alt}](#{src})"
     end
